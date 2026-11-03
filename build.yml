@@ -1,0 +1,59 @@
+name: Compilar APK de teste
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'memoria-frutas-vite.zip'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Descompactar o projeto
+        run: unzip -q memoria-frutas-vite.zip
+
+      - name: Instalar pacotes
+        working-directory: memoria-frutas
+        run: |
+          npm install @capacitor/core @capacitor/android @capacitor-community/admob
+          npm install -D vite @capacitor/cli
+
+      - name: Gerar o site
+        working-directory: memoria-frutas
+        run: npm run build
+
+      - name: Criar projeto Android
+        working-directory: memoria-frutas
+        run: npx cap add android
+
+      - name: Configurar AdMob no Android
+        working-directory: memoria-frutas
+        run: node scripts/patch-android.mjs
+
+      - name: Sincronizar
+        working-directory: memoria-frutas
+        run: npx cap sync android
+
+      - name: Compilar APK
+        working-directory: memoria-frutas/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoria-frutas-apk-teste
+          path: memoria-frutas/android/app/build/outputs/apk/debug/app-debug.apk
